@@ -1,0 +1,21 @@
+{
+  "name": "loans",
+  "version": "1.0.0",
+  "description": "a loan application service which created and updates loans",
+  "license": "ISC",
+  "author": "Rohan Rai",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.16.0",
+    "nodemon": "^3.1.10",
+    "zod": "^3.25.67"
+  }
+}
