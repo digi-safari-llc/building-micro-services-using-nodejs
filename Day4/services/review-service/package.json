@@ -1,0 +1,22 @@
+{
+  "name": "review",
+  "version": "1.0.0",
+  "description": "a review system that updated the status of the loans",
+  "license": "ISC",
+  "author": "Rohan Rai",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.8",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.16.1",
+    "nodemon": "^3.1.10",
+    "zod": "^3.25.67"
+  }
+}
