@@ -42,7 +42,7 @@ const start = async () => {
   }
 
   try {
-    await mongoose.connect("mongodb://localhost:27017/PLMS-auth");
+    await mongoose.connect("mongodb://localhost:27017/PLMS-Auth");
     console.log("Connected to MongoDB :]");
   } catch (err) {
     console.log(err);
