@@ -14,10 +14,9 @@ const loanCreatedSchema = z.object({
       message: "Invalid date format",
     }),
     profileURL: z.string().url("Invalid profile URL"),
-    gender: z.enum(["male", "female", "other"], {
+    gender: z.enum(["male", "female", "prefer-not-to-say"], {
       errorMap: () => ({ message: "Invalid gender value" }),
     }),
-    customGender: z.string(),
     employer: z.string().min(1, "Employer is required").trim(),
     monthlySalary: z.number().min(1, "Monthly salary must be greater than 0"),
     creditScore: z

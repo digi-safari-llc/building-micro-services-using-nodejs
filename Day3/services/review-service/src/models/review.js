@@ -22,11 +22,7 @@ const reviewSchema = new mongoose.Schema(
       gender: {
         type: String,
         required: true,
-        enum: ["male", "female", "other"],
-      },
-      customGender: {
-        type: String,
-        required: false,
+        enum: ["male", "female", "prefer-not-to-say"],
       },
       employer: {
         type: String,
