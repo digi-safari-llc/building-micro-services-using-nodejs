@@ -1,5 +1,4 @@
 const express = require("express");
-const cors = require("cors");
 
 require("dotenv").config();
 
@@ -13,15 +12,6 @@ global.banks = [];
 
 const app = express();
 const PORT = 8002;
-
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
 
 app.use(express.json());
 
