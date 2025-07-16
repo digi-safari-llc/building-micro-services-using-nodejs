@@ -1,14 +1,13 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
 const amqp = require("amqplib/callback_api");
+
 require("dotenv").config();
 
 const { NotFoundError } = require("./errors/not-found-error");
 const { errorHandler } = require("./middlewares/error-handler");
 const { createloanRouter } = require("./routes/createloan-route");
 const { getloansRouter } = require("./routes/getloans-route");
-const { saveLoans } = require("./controllers/saveloans");
 const { updateLoans } = require("./controllers/updatedLoans");
 
 amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
@@ -22,17 +21,6 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
     }
 
     const app = express();
-
-    app.enable("trust proxy");
-
-    app.use(
-      cors({
-        origin: "http://localhost:5173",
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-      })
-    );
 
     app.use(express.json());
 
@@ -63,17 +51,6 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
       } catch (err) {
         console.log(err);
       }
-
-      channel.assertQueue("loan_created", { durable: true }, (error) => {
-        if (error) {
-          console.error("Queue assertion error:", error);
-          return;
-        }
-
-        console.log("Asserted 'loan_created' queue");
-
-        channel.consume("loan_created", saveLoans, { noAck: false });
-      });
 
       channel.assertQueue("loan_updated", { durable: true }, (error) => {
         if (error) {

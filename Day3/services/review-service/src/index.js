@@ -1,7 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
 const amqp = require("amqplib/callback_api");
+
 require("dotenv").config();
 
 const { getloansRouter } = require("./routes/get-loans-route");
@@ -22,17 +22,6 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
     }
 
     const app = express();
-
-    app.enable("trust proxy");
-
-    app.use(
-      cors({
-        origin: "http://localhost:5173",
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-      })
-    );
 
     app.use(express.json());
 
