@@ -1,45 +1,103 @@
 const jwt = require("jsonwebtoken");
-
 const { BadRequestError } = require("../errors/bad-request-error");
 const { User } = require("../models/user");
+const logger = require("../utils/logger");
 
 const signup = async (req, res) => {
-  console.log("\n[New log]:");
+  const requestId = Date.now().toString();
 
   const { name, email, password } = req.body;
 
-  console.log("Initial Validation Completed.");
+  logger.info(`[${requestId}] User signup attempt initiated`, {
+    endpoint: "/api/users/signup",
+    method: "POST",
+    email,
+    name,
+    requestId,
+  });
 
-  const existingUser = await User.findOne({ email });
+  try {
+    logger.debug(`[${requestId}] Initial validation completed for signup`, {
+      email,
+      name,
+      requestId,
+    });
 
-  if (existingUser) {
-    console.log("Email in use!");
-    throw new BadRequestError("Email in use!");
-  }
+    logger.debug(`[${requestId}] Checking if email already exists`, {
+      email,
+      requestId,
+    });
 
-  console.log("Email not in use, creating a new user.");
+    const existingUser = await User.findOne({ email });
 
-  const user = User.build({ name, email, password, role: "customer" });
-  await user.save();
+    if (existingUser) {
+      logger.warn(`[${requestId}] Signup failed - email already in use`, {
+        email,
+        existingUserId: existingUser.id,
+        requestId,
+      });
+      throw new BadRequestError("Email in use!");
+    }
 
-  console.log("User data saved in database.");
+    logger.debug(`[${requestId}] Email available, creating new user`, {
+      email,
+      name,
+      requestId,
+    });
 
-  const userJwt = jwt.sign(
-    {
+    const user = User.build({ name, email, password, role: "customer" });
+    await user.save();
+
+    logger.info(`[${requestId}] New user created successfully`, {
+      email,
+      name,
+      userId: user.id,
+      userRole: user.role,
+      requestId,
+    });
+
+    const jwtPayload = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
-    },
-    process.env.JWT_KEY,
-    { expiresIn: "10d" }
-  );
+    };
 
-  console.log("JWT created!");
+    logger.debug(`[${requestId}] Creating JWT token for new user`, {
+      userId: user.id,
+      userRole: user.role,
+      requestId,
+    });
 
-  console.log("Token sent to the user!");
+    const userJwt = jwt.sign(jwtPayload, process.env.JWT_KEY, {
+      expiresIn: "10d",
+    });
+    logger.info(`[${requestId}] JWT token created and sent to new user`, {
+      email,
+      userId: user.id,
+      userRole: user.role,
+      requestId,
+    });
 
-  res.status(201).send({ token: userJwt });
+    res.status(201).send({ token: userJwt });
+  } catch (error) {
+    if (error instanceof BadRequestError) {
+      logger.warn(`[${requestId}] Bad request in signup process`, {
+        error: error.message,
+        email,
+        requestId,
+      });
+      throw error;
+    }
+
+    logger.error(`[${requestId}] Signup process failed`, {
+      error: error.message,
+      stack: error.stack,
+      email,
+      requestId,
+    });
+    throw error;
+  }
 };
 
 module.exports = signup;

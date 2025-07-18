@@ -1,38 +1,54 @@
 const express = require("express");
 const mongoose = require("mongoose");
-const cors = require("cors");
 const amqp = require("amqplib/callback_api");
+const logger = require("./utils/logger");
+
 require("dotenv").config();
 
 const { getloansRouter } = require("./routes/get-loans-route");
 const { reviewLoanRouter } = require("./routes/review-loan-route");
-
 const { NotFoundError } = require("./errors/not-found-error");
-const errorHandler = require("./middlewares/error-handler");
+const { errorHandler } = require("./middlewares/error-handler");
 const loanCreated = require("./controllers/loan-created");
 
 amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
   if (error0) {
+    logger.error("Failed to connect to RabbitMQ", {
+      error: error0.message,
+      stack: error0.stack,
+      amqpUrl: process.env.AMQP_CONNECT,
+    });
+
     throw error0;
   }
 
+  logger.info("Connected to RabbitMQ successfully");
+
   connection.createChannel((error1, channel) => {
     if (error1) {
+      logger.error("Failed to create RabbitMQ channel", {
+        error: error1.message,
+        stack: error1.stack,
+      });
       throw error1;
     }
 
     const app = express();
 
-    app.enable("trust proxy");
+    app.use((req, res, next) => {
+      const requestId = Date.now().toString();
+      req.requestId = requestId;
 
-    app.use(
-      cors({
-        origin: "http://localhost:5173",
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-      })
-    );
+      logger.http(`[${requestId}] Incoming request`, {
+        method: req.method,
+        url: req.originalUrl,
+        ip: req.ip,
+        userAgent: req.get("User-Agent"),
+        requestId,
+      });
+
+      next();
+    });
 
     app.use(express.json());
 
@@ -45,6 +61,11 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
     app.use(reviewLoanRouter);
 
     app.use(async (req, res, next) => {
+      logger.warn(`[${req.requestId}] Route not found`, {
+        url: req.originalUrl,
+        method: req.method,
+        requestId: req.requestId,
+      });
       next(new NotFoundError());
     });
 
@@ -54,37 +75,85 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
       const PORT = 8004;
 
       if (!process.env.JWT_KEY) {
+        logger.error("JWT_KEY environment variable is not defined");
         throw new Error("JWT_KEY must be defined");
       }
 
       try {
-        await mongoose.connect("mongodb://localhost:27017/PLMS-Review");
-        console.log("Connected to MongoDB :]");
+        logger.info("Connecting to MongoDB...");
+        await mongoose.connect(
+          process.env.MONGODB_URI || "mongodb://localhost:27017/PLMS-Review"
+        );
+        logger.info("Connected to MongoDB successfully", {
+          database: "PLMS-Review",
+        });
       } catch (err) {
-        console.log(err);
+        logger.error("Failed to connect to MongoDB", {
+          error: err.message,
+          stack: err.stack,
+        });
+        throw err;
       }
+
+      logger.info("Setting up RabbitMQ queues...");
 
       channel.assertQueue("loan_created", { durable: true }, (error) => {
         if (error) {
-          console.error("Queue assertion error:", error);
+          logger.error("Failed to assert loan_updated queue", {
+            error: error.message,
+            stack: error.stack,
+          });
           return;
         }
 
-        console.log("Asserted 'loan_created' queue");
+        logger.info("loan_updated queue asserted successfully");
 
-        channel.consume("loan_created", loanCreated, { noAck: false });
+        channel.consume(
+          "loan_created",
+          (msg) => {
+            loanCreated(msg, channel);
+          },
+          { noAck: false }
+        );
+
+        logger.info("Started consuming loan_created queue");
       });
 
       app.listen(PORT, () => {
-        console.log("Listening on port 8004");
+        logger.info("Review service is running", {
+          port: PORT,
+          environment: process.env.NODE_ENV || "development",
+        });
       });
     };
-
-    start();
+    start().catch((err) => {
+      logger.error("Failed to start Review service", {
+        error: err.message,
+        stack: err.stack,
+      });
+      process.exit(1);
+    });
 
     process.on("beforeExit", () => {
-      console.log("Closing Connection to RabbitMQ!");
+      logger.info("Shutting down Review service...");
+      logger.info("Closing RabbitMQ connection...");
       connection.close();
     });
   });
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught Exception", {
+    error: err.message,
+    stack: err.stack,
+  });
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (err) => {
+  logger.error("Unhandled Rejection", {
+    error: err.message,
+    stack: err.stack,
+  });
+  process.exit(1);
 });

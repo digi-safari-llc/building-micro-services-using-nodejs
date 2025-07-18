@@ -1,14 +1,31 @@
 const { Notification } = require("../models/notification");
+const logger = require("../utils/logger");
 
 const loanCreated = async (msg, channel) => {
+  const eventId = Date.now().toString();
+
   try {
-    console.log("\n[New Log]:");
+    logger.info(`[${eventId}] Processing loan created event`, {
+      queue: "loan_created",
+      eventId,
+    });
 
     const eventData = JSON.parse(msg.content.toString());
 
-    console.log("Received loan created event.");
-
     const { loan } = eventData;
+
+    logger.debug(`[${eventId}] Parsed loan created event data`, {
+      loanId: loan.id,
+      eventData,
+      eventId,
+    });
+
+    logger.debug(`[${eventId}] Checking for existing notification`, {
+      loanId: loan.id,
+      type: "loan_created",
+      role: "manager",
+      eventId,
+    });
 
     const existingNotification = await Notification.findOne({
       loanId: loan.id,
@@ -17,7 +34,11 @@ const loanCreated = async (msg, channel) => {
     });
 
     if (existingNotification) {
-      console.log("Notification already exists for this loan creation!");
+      logger.warn(`[${eventId}] Duplicate notification detected`, {
+        loanId: loan.id,
+        existingNotificationId: existingNotification.id,
+        eventId,
+      });
       channel.ack(msg);
       return;
     }
@@ -30,17 +51,29 @@ const loanCreated = async (msg, channel) => {
       message: "A new loan has been added to review list of loans.",
     };
 
-    const newNotification = new Notification(notificationData);
+    logger.debug(`[${eventId}] Creating new loan notification`, {
+      notificationData,
+      eventId,
+    });
 
-    console.log("New loan created notification data built!");
+    const newNotification = new Notification(notificationData);
 
     await newNotification.save();
 
-    console.log("New loan created notification saved!");
+    logger.info(`[${eventId}] Loan created notification saved successfully`, {
+      loanId: loan.id,
+      notificationId: newNotification.id,
+      eventId,
+    });
 
     channel.ack(msg);
   } catch (err) {
-    console.log("Error processing loan created event:", err);
+    logger.error(`[${eventId}] Error processing loan created event`, {
+      error: err.message,
+      stack: err.stack,
+      messageContent: msg.content.toString(),
+      eventId,
+    });
 
     channel.nack(msg, false, true);
   }

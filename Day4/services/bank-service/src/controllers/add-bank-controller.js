@@ -1,68 +1,121 @@
 const { BadRequestError } = require("../errors/bad-request-error");
 const { Bank } = require("../models/banks");
+const logger = require("../utils/logger");
 
 const addbank = async (req, res) => {
-  console.log("\n[New log]:");
+  const requestId = Date.now().toString();
 
-  const {
-    bankName,
-    logo,
-    minLoanAmount,
-    maxLoanAmount,
-    minInterestRate,
-    maxInterestRate,
-    minCreditScore,
-    termLength,
-    processingFee,
-    rating,
-  } = req.body;
+  logger.info(`[${requestId}] Starting bank creation process`, {
+    endpoint: "/api/banks/addbank",
+    method: "POST",
+    requestId,
+  });
 
-  console.log("Initial Validation Completed.");
+  try {
+    const {
+      bankName,
+      logo,
+      minLoanAmount,
+      maxLoanAmount,
+      minInterestRate,
+      maxInterestRate,
+      minCreditScore,
+      termLength,
+      processingFee,
+      rating,
+    } = req.body;
 
-  const existingBank = await Bank.findOne({ bankName });
+    logger.debug(`[${requestId}] Request body validation completed`, {
+      bankName,
+      minLoanAmount,
+      maxLoanAmount,
+      minInterestRate,
+      maxInterestRate,
+      minCreditScore,
+      termLength,
+      processingFee,
+      rating,
+      requestId,
+    });
 
-  if (existingBank) {
-    console.log("A Bank with the same name already exists!");
-    throw new BadRequestError("A Bank with the same name already exists!");
-  }
-
-  if (minLoanAmount >= maxLoanAmount) {
-    console.log("Minimum Loan Amount is greater than Maximum Loan Amount!");
-    throw new BadRequestError(
-      "Minimum Loan Amount can not be greater than the Maximum Loan Amount!"
+    logger.debug(
+      `[${requestId}] Checking for existing bank with name: ${bankName}`
     );
+    const existingBank = await Bank.findOne({ bankName });
+
+    if (existingBank) {
+      logger.warn(`[${requestId}] Bank creation failed - duplicate bank name`, {
+        bankName,
+        requestId,
+      });
+      throw new BadRequestError("A Bank with the same name already exists!");
+    }
+
+    if (minLoanAmount >= maxLoanAmount) {
+      logger.warn(
+        `[${requestId}] Bank creation failed - invalid loan amounts`,
+        {
+          minLoanAmount,
+          maxLoanAmount,
+          requestId,
+        }
+      );
+      throw new BadRequestError(
+        "Minimum Loan Amount can not be greater than the Maximum Loan Amount!"
+      );
+    }
+
+    if (minInterestRate >= maxInterestRate) {
+      logger.warn(
+        `[${requestId}] Bank creation failed - invalid interest rates`,
+        {
+          minInterestRate,
+          maxInterestRate,
+          requestId,
+        }
+      );
+      throw new BadRequestError(
+        "Minimum Interest Rate can not be greater than the Maximum Interest Rate!"
+      );
+    }
+
+    logger.info(`[${requestId}] Creating new bank entry`, {
+      bankName,
+      requestId,
+    });
+
+    const newBank = new Bank({
+      bankName,
+      logo,
+      minLoanAmount,
+      maxLoanAmount,
+      minInterestRate,
+      maxInterestRate,
+      minCreditScore,
+      termLength,
+      processingFee,
+      rating,
+    });
+
+    await newBank.save();
+
+    logger.info(`[${requestId}] Bank created successfully`, {
+      bankName,
+      bankId: newBank._id,
+      requestId,
+    });
+
+    res.status(201).send({
+      success: [{ message: "Successfully created a Bank!" }],
+    });
+  } catch (error) {
+    logger.error(`[${requestId}] Error creating bank`, {
+      error: error.message,
+      stack: error.stack,
+      requestId,
+    });
+    throw error;
   }
-
-  if (minInterestRate >= maxInterestRate) {
-    console.log("Minimum Interest Rate is greater than Maximum Interest Rate!");
-    throw new BadRequestError(
-      "Minimum Interest Rate can not be greater than the Maximum Interest Rate!"
-    );
-  }
-
-  console.log("Creating new bank entry...");
-
-  const newBank = {
-    id: Date.now().toString(),
-    bankName,
-    logo,
-    minLoanAmount,
-    maxLoanAmount,
-    minInterestRate,
-    maxInterestRate,
-    minCreditScore,
-    termLength,
-    processingFee,
-    rating,
-  };
-
-  await bank.save();
-
-  console.log("Bank data saved in memory.");
-
-  res
-    .status(201)
-    .send({ success: [{ message: "Successfully created a Bank!" }] });
 };
 
 module.exports = addbank;

@@ -2,21 +2,21 @@ const {
   DatabaseConnectionError,
 } = require("../errors/database-connection-error");
 const { BadRequestError } = require("../errors/bad-request-error");
-const { Review } = require("../models/review");
+const { Loan } = require("../models/loans");
 const logger = require("../utils/logger");
 
-const getAllLoans = async (req, res) => {
+const getloans = async (req, res) => {
   const requestId = Date.now().toString();
 
   const { status, bankId } = req.query;
   const { role, id: currentUserId } = req.currentUser;
 
-  logger.info(`[${requestId}] All loans retrieval request initiated`, {
-    endpoint: "/api/reviews/loans",
+  logger.info(`[${requestId}] Loan retrieval request initiated`, {
+    endpoint: "/api/loans",
     method: "GET",
     userId: currentUserId,
     userRole: role,
-    queryParams: { status, bankId, userid: req.query.userid },
+    queryParams: { status, bankId },
     requestId,
   });
 
@@ -24,8 +24,18 @@ const getAllLoans = async (req, res) => {
     let filter = {};
 
     if (role === "customer") {
+      filter.userid = currentUserId;
+      logger.debug(
+        `[${requestId}] Customer accessing their own loan applications`,
+        {
+          userId: currentUserId,
+          filter,
+          requestId,
+        }
+      );
+    } else if (role === "manager") {
       logger.warn(
-        `[${requestId}] Customer attempting to access manager-only service`,
+        `[${requestId}] Manager attempting to access user-only service`,
         {
           userId: currentUserId,
           userRole: role,
@@ -35,23 +45,6 @@ const getAllLoans = async (req, res) => {
       return res.status(403).send({
         errors: [{ message: "Your are not autherized to use this service." }],
       });
-    } else if (role === "manager") {
-      if (req.query.userid) {
-        filter.userid = req.query.userid;
-        logger.debug(
-          `[${requestId}] Manager accessing specific user's loan applications`,
-          {
-            managerId: currentUserId,
-            targetUserId: req.query.userid,
-            requestId,
-          }
-        );
-      } else {
-        logger.debug(`[${requestId}] Manager accessing all loan applications`, {
-          managerId: currentUserId,
-          requestId,
-        });
-      }
     } else {
       logger.warn(`[${requestId}] Invalid user role detected`, {
         role,
@@ -64,24 +57,25 @@ const getAllLoans = async (req, res) => {
     if (status) filter.status = status;
     if (bankId) filter.bankId = bankId;
 
-    logger.debug(`[${requestId}] Fetching review applications from database`, {
+    logger.debug(`[${requestId}] Fetching loan applications from database`, {
       filter,
       requestId,
     });
 
-    const review = await Review.find(filter).sort({ dateOfApplication: -1 });
+    const loans = await Loan.find(filter).sort({ dateOfApplication: -1 });
 
-    logger.info(`[${requestId}] Review applications retrieved successfully`, {
-      totalCount: review.length,
-      managerId: currentUserId,
+    logger.info(`[${requestId}] Loan applications retrieved successfully`, {
+      totalCount: loans.length,
+      userId: currentUserId,
+      userRole: role,
       filters: filter,
       requestId,
     });
 
-    res.status(200).send({ review });
+    res.status(200).send({ loans });
   } catch (error) {
     if (error instanceof BadRequestError) {
-      logger.warn(`[${requestId}] Bad request in review retrieval`, {
+      logger.warn(`[${requestId}] Bad request in loan retrieval`, {
         error: error.message,
         userId: currentUserId,
         requestId,
@@ -89,7 +83,7 @@ const getAllLoans = async (req, res) => {
       throw error;
     }
 
-    logger.error(`[${requestId}] Database error in review retrieval`, {
+    logger.error(`[${requestId}] Database error in loan retrieval`, {
       error: error.message,
       stack: error.stack,
       userId: currentUserId,
@@ -99,4 +93,4 @@ const getAllLoans = async (req, res) => {
   }
 };
 
-module.exports = getAllLoans;
+module.exports = getloans;

@@ -1,33 +1,33 @@
-const { Review } = require("../models/review");
+const { Loan } = require("../models/loans");
 const logger = require("../utils/logger");
 
-const loanCreated = async (msg, channel) => {
+const saveLoans = async (msg, channel) => {
   const eventId = Date.now().toString();
 
   try {
-    logger.info(`[${eventId}] Processing loan created event for review`, {
-      queue: "loan_created",
+    logger.info(`[${eventId}] Processing save loans event`, {
+      queue: "loan_save",
       eventId,
     });
 
     const eventLoan = JSON.parse(msg.content.toString());
 
-    logger.debug(`[${eventId}] Parsed loan created event data`, {
+    logger.debug(`[${eventId}] Parsed loan save event data`, {
       loanId: eventLoan.loan?.id,
       eventId,
     });
 
     const { loan } = eventLoan;
 
-    logger.debug(`[${eventId}] Checking for existing review`, {
+    logger.debug(`[${eventId}] Checking for existing loan`, {
       loanId: loan.id,
       eventId,
     });
 
-    const existingReview = await Review.findById(loan.id);
+    const existingLoan = await Loan.findById(loan.id);
 
-    if (existingReview) {
-      logger.warn(`[${eventId}] Review data already exists`, {
+    if (existingLoan) {
+      logger.warn(`[${eventId}] Loan data already exists`, {
         loanId: loan.id,
         eventId,
       });
@@ -35,33 +35,32 @@ const loanCreated = async (msg, channel) => {
       return;
     }
 
-    logger.debug(`[${eventId}] Creating new review record`, {
+    logger.debug(`[${eventId}] Creating new loan record`, {
       loanId: loan.id,
       userId: loan.userid,
       bankId: loan.bankId,
       eventId,
     });
 
-    const newReview = new Review({
+    const newLoan = new Loan({
       _id: loan.id,
       ...loan,
     });
 
-    await newReview.save();
+    await newLoan.save();
 
-    logger.info(`[${eventId}] New review data saved successfully`, {
+    logger.info(`[${eventId}] New loan data saved successfully`, {
       loanId: loan.id,
       userId: loan.userid,
       bankId: loan.bankId,
       bankName: loan.bankName,
       appliedLoanAmount: loan.appliedLoanAmount,
-      status: loan.status,
       eventId,
     });
 
     channel.ack(msg);
   } catch (err) {
-    logger.error(`[${eventId}] Error in loan created review process`, {
+    logger.error(`[${eventId}] Error in save loans process`, {
       error: err.message,
       stack: err.stack,
       messageContent: msg.content.toString(),
@@ -72,4 +71,4 @@ const loanCreated = async (msg, channel) => {
   }
 };
 
-module.exports = loanCreated;
+module.exports = { saveLoans };

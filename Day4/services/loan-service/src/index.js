@@ -7,10 +7,10 @@ require("dotenv").config();
 
 const { NotFoundError } = require("./errors/not-found-error");
 const { errorHandler } = require("./middlewares/error-handler");
-const { getNotificationsRouter } = require("./routes/get-notifications-route");
-const { markReadRouter } = require("./routes/mark-read-route");
-const loanUpdated = require("./controllers/loan-updated");
-const loanCreated = require("./controllers/loan-created");
+const { createloanRouter } = require("./routes/createloan-route");
+const { getloansRouter } = require("./routes/getloans-route");
+const { saveLoans } = require("./controllers/saveloans");
+const { updateLoans } = require("./controllers/updatedLoans");
 
 amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
   if (error0) {
@@ -36,21 +36,6 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
 
     const app = express();
 
-    app.use((req, res, next) => {
-      const requestId = Date.now().toString();
-      req.requestId = requestId;
-
-      logger.http(`[${requestId}] Incoming request`, {
-        method: req.method,
-        url: req.originalUrl,
-        ip: req.ip,
-        userAgent: req.get("User-Agent"),
-        requestId,
-      });
-
-      next();
-    });
-
     app.use(express.json());
 
     app.use((req, res, next) => {
@@ -58,36 +43,29 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
       next();
     });
 
-    app.use(getNotificationsRouter);
-    app.use(markReadRouter);
+    app.use(createloanRouter);
+    app.use(getloansRouter);
 
     app.use(async (req, res, next) => {
-      logger.warn(`[${req.requestId}] Route not found`, {
-        url: req.originalUrl,
-        method: req.method,
-        requestId: req.requestId,
-      });
       next(new NotFoundError());
     });
 
     app.use(errorHandler);
 
     const start = async () => {
-      const PORT = 8005;
+      const PORT = 8003;
 
       if (!process.env.JWT_KEY) {
-        logger.error("JWT_KEY environment variable is not defined");
         throw new Error("JWT_KEY must be defined");
       }
 
       try {
         logger.info("Connecting to MongoDB...");
         await mongoose.connect(
-          process.env.MONGODB_URI ||
-            "mongodb://localhost:27017/PLMS-Notification"
+          process.env.MONGODB_URI || "mongodb://localhost:27017/PLMS-Loans"
         );
         logger.info("Connected to MongoDB successfully", {
-          database: "PLMS-Notification",
+          database: "PLMS-Loans",
         });
       } catch (err) {
         logger.error("Failed to connect to MongoDB", {
@@ -99,7 +77,7 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
 
       logger.info("Setting up RabbitMQ queues...");
 
-      channel.assertQueue("loan_updated", { durable: true }, (error) => {
+      channel.assertQueue("loan_created", { durable: true }, (error) => {
         if (error) {
           logger.error("Failed to assert loan_updated queue", {
             error: error.message,
@@ -111,9 +89,9 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
         logger.info("loan_updated queue asserted successfully");
 
         channel.consume(
-          "loan_updated",
+          "loan_created",
           (msg) => {
-            loanUpdated(msg, channel);
+            saveLoans(msg, channel);
           },
           { noAck: false }
         );
@@ -121,7 +99,7 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
         logger.info("Started consuming loan_updated queue");
       });
 
-      channel.assertQueue("loan_created", { durable: true }, (error) => {
+      channel.assertQueue("loan_updated", { durable: true }, (error) => {
         if (error) {
           logger.error("Failed to assert loan_created queue", {
             error: error.message,
@@ -133,9 +111,9 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
         logger.info("loan_created queue asserted successfully");
 
         channel.consume(
-          "loan_created",
+          "loan_updated",
           (msg) => {
-            loanCreated(msg, channel);
+            updateLoans(msg, channel);
           },
           { noAck: false }
         );
@@ -144,7 +122,7 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
       });
 
       app.listen(PORT, () => {
-        logger.info("Notification service is running", {
+        logger.info("Loans service is running", {
           port: PORT,
           environment: process.env.NODE_ENV || "development",
         });
@@ -152,7 +130,7 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
     };
 
     start().catch((err) => {
-      logger.error("Failed to start notification service", {
+      logger.error("Failed to start Loans service", {
         error: err.message,
         stack: err.stack,
       });
@@ -160,7 +138,7 @@ amqp.connect(process.env.AMQP_CONNECT, (error0, connection) => {
     });
 
     process.on("beforeExit", () => {
-      logger.info("Shutting down notification service...");
+      logger.info("Shutting down Loans service...");
       logger.info("Closing RabbitMQ connection...");
       connection.close();
     });

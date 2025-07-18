@@ -1,7 +1,7 @@
 {
-  "name": "review",
+  "name": "loans",
   "version": "1.0.0",
-  "description": "a review system that updated the status of the loans",
+  "description": "a loan application service which created and updates loans",
   "license": "ISC",
   "author": "Rohan Rai",
   "type": "commonjs",
@@ -16,7 +16,7 @@
     "dotenv": "^16.6.0",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.16.1",
+    "mongoose": "^8.16.0",
     "nodemon": "^3.1.10",
     "winston": "^3.17.0",
     "zod": "^3.25.67"
