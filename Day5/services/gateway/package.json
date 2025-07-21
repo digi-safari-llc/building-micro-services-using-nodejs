@@ -1,0 +1,17 @@
+{
+  "name": "api-gateway",
+  "version": "1.0.0",
+  "description": "this is a gateway for all the api in the microservices architecture.",
+  "license": "ISC",
+  "author": "Rohan Rai",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon server.js"
+  },
+  "dependencies": {
+    "express-gateway": "^1.16.11",
+    "nodemon": "^3.1.10",
+    "path": "^0.12.7"
+  }
+}

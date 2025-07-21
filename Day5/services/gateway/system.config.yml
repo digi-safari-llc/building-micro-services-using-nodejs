@@ -1,0 +1,12 @@
+db:
+  redis:
+    emulate: true
+    namespace: EG
+
+crypto:
+  cipherKey: "changeMe"
+
+session:
+  secret: "keyboard cat"
+  resave: false
+  saveUninitialized: false

@@ -1,0 +1,27 @@
+{
+  "$id": "http://express-gateway.io/models/users.json",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "isRequired": true
+    },
+    "name": {
+      "type": "string",
+      "isRequired": true
+    },
+    "email": {
+      "type": "string",
+      "isRequired": true
+    },
+    "password": {
+      "type": "string",
+      "isRequired": true
+    },
+    "role": {
+      "type": "string",
+      "isRequired": true,
+      "enum": ["customer", "manager"]
+    }
+  }
+}

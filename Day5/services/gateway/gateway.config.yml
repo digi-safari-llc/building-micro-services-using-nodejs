@@ -1,0 +1,126 @@
+http:
+  port: 8080
+
+apiEndpoints:
+  banks:
+    host: localhost
+    paths: "/api/bank/*"
+  user:
+    host: localhost
+    paths: "/api/users/*"
+  loan:
+    host: localhost
+    paths: "/api/loans/*"
+  review:
+    host: localhost
+    paths: "/api/review/*"
+  notification:
+    host: localhost
+    paths: "/api/notifications/*"
+
+serviceEndpoints:
+  bank-service:
+    url: "http://localhost:8002/api/banks"
+  auth-service:
+    url: "http://localhost:8001/api/users"
+  loan-service:
+    url: "http://localhost:8003/api/loans"
+  review-service:
+    url: "http://localhost:8004/api/review"
+  notification-service:
+    url: "http://localhost:8005/api/notifications"
+
+policies:
+  - rate-limit
+  - proxy
+
+pipelines:
+  bank-pipeline:
+    apiEndpoints:
+      - banks
+    policies:
+      - rate-limit:
+          - action:
+              max: 100
+              windowMs: 60000
+              rateLimitBy: "${req.ip}"
+              skipSuccessfulRequests: false
+              skipFailedRequests: false
+              message: "Too many requests from this IP for bank service"
+      - proxy:
+          - action:
+              serviceEndpoint: bank-service
+              changeOrigin: true
+              stripPath: true
+
+  auth-pipeline:
+    apiEndpoints:
+      - user
+    policies:
+      - rate-limit:
+          - action:
+              max: 100
+              windowMs: 60000
+              rateLimitBy: "${req.ip}"
+              skipSuccessfulRequests: false
+              skipFailedRequests: false
+              message: "Too many requests from this IP for auth service"
+      - proxy:
+          - action:
+              serviceEndpoint: auth-service
+              changeOrigin: true
+              stripPath: true
+
+  loan-pipeline:
+    apiEndpoints:
+      - loan
+    policies:
+      - rate-limit:
+          - action:
+              max: 100
+              windowMs: 60000
+              rateLimitBy: "${req.ip}"
+              skipSuccessfulRequests: false
+              skipFailedRequests: false
+              message: "Too many requests from this IP for loan service"
+      - proxy:
+          - action:
+              serviceEndpoint: loan-service
+              changeOrigin: true
+              stripPath: true
+
+  review-pipeline:
+    apiEndpoints:
+      - review
+    policies:
+      - rate-limit:
+          - action:
+              max: 100
+              windowMs: 60000
+              rateLimitBy: "${req.ip}"
+              skipSuccessfulRequests: false
+              skipFailedRequests: false
+              message: "Too many requests from this IP for review service"
+      - proxy:
+          - action:
+              serviceEndpoint: review-service
+              changeOrigin: true
+              stripPath: true
+
+  notification-pipeline:
+    apiEndpoints:
+      - notification
+    policies:
+      - rate-limit:
+          - action:
+              max: 1
+              windowMs: 60000
+              rateLimitBy: "${req.ip}"
+              skipSuccessfulRequests: false
+              skipFailedRequests: false
+              message: "Too many requests from this IP for notification service"
+      - proxy:
+          - action:
+              serviceEndpoint: notification-service
+              changeOrigin: true
+              stripPath: true
